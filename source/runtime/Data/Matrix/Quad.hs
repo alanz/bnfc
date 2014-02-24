@@ -175,17 +175,27 @@ mkMat (Bin' _ Leaf' x) (Col a b) (Col c d) = quad a c b d
 mkMat (Bin' _ x1 x2) (Quad a b c d) (Quad e f g h) = quad (mkMat x1 a b) (mkMat x1 e f)
                                                           (mkMat x2 c d) (mkMat x2 g h)
 
+-- TODO: Should this also have AbelianGroupZ as constraint?
 mkRow :: Mat x y a -> Mat x' y a -> Mat (Bin x x') y a
-mkRow Zero Zero = Zero
-mkRow Zero (One a) = row Zero (One a)
-mkRow (One a) Zero = row (One a) Zero
-mkRow (One a) (One b) = row (One a) (One b)
+mkRow Zero Zero      = Zero
+mkRow Zero (One a)   = row Zero (One a)
+mkRow Zero (Col a b) = quad Zero a Zero b
+mkRow Zero (Row a b) = row Zero (row a b)
+mkRow Zero (Quad a b c d) = quad Zero (mkRow a b) Zero (mkRow c d)
+mkRow (One a) Zero      = row (One a) Zero
+mkRow (One a) (One b)   = row (One a) (One b)
+mkRow (One a) (Row b c) = row (One a) (row b c)
+mkRow (Row a b) Zero    = row (row a b) Zero
 mkRow rl@(Row _ _) rr@(Row _ _) = row rl rr
-mkRow (Col a b) (Col c d) = quad a c b d
+mkRow (Col a b) Zero           = quad a Zero b Zero
+mkRow (Col a b) (Col c d)      = quad a c b d
+mkRow (Col a b) (Quad c d e f) = quad a (mkRow c d) b (mkRow e f)
+mkRow (Quad a b c d) Zero      = quad (mkRow a b) Zero (mkRow c d) Zero
+mkRow (Quad a b c d) (Col e f) = quad (mkRow a b) e (mkRow c d) f
 mkRow (Quad a b c d) (Quad e f g h) = quad (mkRow a b) (mkRow e f)
                                            (mkRow c d) (mkRow g h)
 
--- FIXME: How to get the shape in the call to mkMat?
+-- Chops off the topmost row in a matrix pair.
 chopFirstRow :: ChopFirst y y' -> Pair (Mat x y a) -> (Pair (Mat x y' a), Pair (Mat x Leaf a))
 chopFirstRow StopY (Quad a b c d :/: Quad a' b' c' d') = (mkMat undefined c d :/: undefined, undefined)
 chopFirstRow (ContinueY ch) (Quad a b c d :/: Quad a' b' c' d') = 
@@ -193,7 +203,6 @@ chopFirstRow (ContinueY ch) (Quad a b c d :/: Quad a' b' c' d') =
         ((f :/: f'),topright) = chopFirstRow ch (b :/: b')
     in (quad e f c d :/: quad e' f' c' d', row <$> topleft <*> topright)
 
--- TODO: Get rid of the CPS
 chopFirst :: RingP a => Shape' x -> Pair (Mat x x a) -> ((forall x'. ChopFirst x x' -> Shape' x' -> Pair (Mat x' Leaf a) -> Pair (Mat x' x' a) -> k) -> k)
 chopFirst Leaf' _ k = error "can't chop!"
 chopFirst (Bin' _ Leaf' x) (Quad a b c d :/: Quad a' b' c' d') k = k StopY x (b :/: b') (d :/: d') 
@@ -217,8 +226,26 @@ mkMat' Leaf' cu@(Col _ _) cl@(Col _ _) = col cu cl
 mkMat' (Bin' _ x Leaf') (Row a b) (Row c d) = quad a b c d
 mkMat' (Bin' _ x1 x2) (Quad a b c d) (Quad e f g h) = quad (mkMat' x1 a c) (mkMat' x2 b d)
                                                            (mkMat' x1 e g) (mkMat' x2 f h)
+-- TODO: Should this have AbelianGroupZ as constraint? Risk of missing zeros.
+mkCol :: Mat x y a -> Mat x y' a -> Mat x (Bin y y') a
+mkCol Zero Zero = Zero
+mkCol Zero (One a) = col Zero (One a)
+mkCol Zero (Col a b) = col Zero (col a b)
+mkCol Zero (Row a b) = quad Zero Zero a b
+mkCol Zero (Quad a b c d) = quad Zero Zero (mkCol a c) (mkCol b d)
+mkCol (One a) Zero = col (One a) Zero
+mkCol (One a) (One b) = col (One a) (One b)
+mkCol (One a) (Col b c) = col (One a) (col b c)
+mkCol cu@(Col _ _) cl@(Col _ _) = col cu cl
+mkCol (Col a b) Zero = col (col a b) Zero
+mkCol (Row a b) Zero = quad a b Zero Zero
+mkCol (Row a b) (Row c d) = quad a b c d
+mkCol (Row a b) (Quad c d e f) = quad a b (mkCol c e) (mkCol d f)
+mkCol (Quad a b c d) Zero = quad (mkCol a c) (mkCol b d) Zero Zero
+mkCol (Quad a b c d) (Row e f) = quad (mkCol a c) (mkCol b d) e f
+mkCol (Quad a b c d) (Quad e f g h) = quad (mkCol a c) (mkCol b d) (mkCol e g) (mkCol f h)
 
--- FIXME: How to send in the shapes into mkMat'?
+-- Chops off the last column in a matrix pair.
 chopLastCol :: ChopLast x x' -> Pair (Mat x y a) -> (Pair (Mat x' y a), Pair (Mat Leaf y a))
 chopLastCol StopX (Quad a b c d :/: Quad a' b' c' d') = (mkMat' undefined a c :/: undefined, Col b d :/: Col b' d')
 chopLastCol (ContinueX ch) (Quad a b c d :/: Quad a' b' c' d') = 
@@ -226,7 +253,6 @@ chopLastCol (ContinueX ch) (Quad a b c d :/: Quad a' b' c' d') =
         (f :/: f', lowerRight) = chopLastCol ch (d :/: d') 
     in (quad a e c f :/: quad a' e' c' f', col <$> upperRight <*> lowerRight)
 
--- TODO: Get rid of the CPS
 chopLast :: RingP a => Shape' x -> Pair (Mat x x a) -> ((forall x'. ChopLast x x' -> Shape' x' -> Pair (Mat x' x' a) -> Pair (Mat Leaf x' a) -> k) -> k)
 chopLast Leaf' _ k = error "can't chop!"
 chopLast (Bin' _ x Leaf') (Quad a b c d :/: Quad a' b' c' d') k = k StopX x (a :/: a') (b :/: b')
@@ -235,7 +261,6 @@ chopLast (Bin' _ x1 x2) (Quad a b c d :/: Quad a' b' c' d') k =
   let (b'',e) = chopLastCol q (b :/: b') 
   in k (ContinueX q) (bin' x1 x2') (quad' (a :/: a') b'' zero d'') (Col <$> e <*> f)
 
--- TODO: Understand this
 mkLast :: RingP a => Shape' y -> Mat x Leaf a -> Mat x y a
 mkLast Leaf' m = m
 mkLast (Bin' _ _y y) (Row a b) = Quad zero zero (mkLast y a) (mkLast y b)
@@ -255,7 +280,7 @@ instance Functor (Mat x y) where
   
 instance Applicative (Mat x y) where
   Quad f g h i <*> Quad a b c d = Quad (f <*> a) (g <*> b) (h <*> c) (i <*> d)
-  pure a = undefined -- TODO
+  pure a = error "cannot lift value a to Mat x y a"
   
 instance RingP a => RingP (Pair a) where
     mul b (p :/: q) (x :/: y) = mul b p x :/: mul b q y
@@ -269,8 +294,8 @@ mkLast' (Bin' _ _y y) (Row a b) = Quad zero zero (mkLast y a) (mkLast y b)
 merge :: RingP a => Bool -> SomeTri a -> SomeTri a -> SomeTri a
 merge p (T Leaf' _zero) x = x
 merge p x (T Leaf' _zero) = x
-merge p (T y l) (T x r) = chopFirst x r $ \ch x' c d ->
-                          chopLast  y l $ \ch' y' a b ->
+merge p (T y l) (T x r) = chopFirst x r $ \_ x' c d ->
+                          chopLast  y l $ \_ y' a b ->
                           T (bin' y x')
                             (quad' l (closeDisjointP p (leftOf l) (mkLast' y $ sequenceA c) (rightOf d)) zero d)
 
