@@ -29,6 +29,7 @@ import BNFC.Backend.Haskell.CFtoHappy
 import BNFC.Backend.Haskell.CFtoAlex
 import BNFC.Backend.Haskell.CFtoAlex2
 import BNFC.Backend.Haskell.CFtoAlex3
+import BNFC.Backend.Haskell.CFtoAlex3Incremental
 import BNFC.Backend.Txt2Tag
 import BNFC.Backend.Haskell.CFtoAbstract
 import BNFC.Backend.Haskell.CFtoTemplate
@@ -71,19 +72,23 @@ makeHaskell opts cf = do
         mkfile (alexFile opts) $ cf2alex2 lexMod errMod shareMod (shareStrings opts) (byteStrings opts) cf
         liftIO $ printf "Use Alex 2.0 to compile %s.\n" (alexFile opts)
       Alex3 -> do
-        mkfile (alexFile opts) $ cf2alex3 lexMod errMod shareMod (shareStrings opts) (byteStrings opts) cf
+        mkFile (alexFile opts) $ cf2alex3 lexMod errMod shareMod (shareStrings opts) (byteStrings opts) cf
         liftIO $ printf "Use Alex 3.0 to compile %s.\n" (alexFile opts)
+      Alex3Inc -> do
+        mkFile (alexFile opts) $ cf2alex3inc lexMod errMod shareMod (shareStrings opts) (byteStrings opts) cf
+        liftIO $ putStrLn "   (Generating incremental lexer)"
+        liftIO $ putStrLn "   (Use Alex 3.0 to compile.)"
     unless (cnf opts) $ do
-      mkfile (happyFile opts) $
-        cf2HappyS parMod absMod lexMod errMod (glr opts) (byteStrings opts) (functor opts) cf
-      liftIO $ printf "%s Tested with Happy 1.15\n" (happyFile opts)
-    mkfile (tFile opts)        $ testfile opts cf
-    mkfile (txtFile opts)      $ cfToTxt (lang opts) cf
-    mkfile (templateFile opts) $ cf2Template (templateFileM opts) absMod errMod (functor opts) cf
-    mkfile (printerFile opts)  $ cf2Printer (byteStrings opts) (functor opts) False prMod absMod cf
-    when (hasLayout cf) $ mkfile (layoutFile opts) $ cf2Layout (alex1 opts) (inDir opts) layMod lexMod cf
-    mkfile (errFile opts) $ mkErrM errMod (ghcExtensions opts)
-    when (shareStrings opts) $ mkfile (shareFile opts)    $ sharedString shareMod (byteStrings opts) cf
+      mkFile (happyFile opts) $
+          	 cf2HappyS parMod absMod lexMod errMod (glr opts) (byteStrings opts) cf
+      liftIO $ printf "%s   Tested with Happy 1.15\n" (happyFile opts)
+      mkFile (tFile opts)        $ testfile opts cf
+    mkFile (txtFile opts)      $ cfToTxt (lang opts) cf
+    mkFile (templateFile opts) $ cf2Template (templateFileM opts) absMod errMod cf
+    mkFile (printerFile opts)  $ cf2Printer (byteStrings opts) prMod absMod cf
+    when (hasLayout cf) $ mkFile (layoutFile opts) $ cf2Layout (alex1 opts) (inDir opts) layMod lexMod cf
+    mkFile (errFile opts)      $ mkErrM errMod (ghcExtensions opts)
+    when (shareStrings opts) $ mkFile (shareFile opts)    $ sharedString shareMod (byteStrings opts) cf
     Makefile.mkMakefile opts $ makefile opts
     case xml opts of
       2 -> makeXML opts True cf

@@ -4,6 +4,7 @@ import BNFC.CF (CF)
 import Data.Maybe (fromMaybe)
 import Data.Version ( showVersion )
 import Paths_BNFC ( version )
+import ErrM
 import System.Console.GetOpt
 import System.FilePath (takeBaseName)
 import Text.Printf (printf)
@@ -48,7 +49,7 @@ instance Show Target where
   show TargetPygments     = "Pygments"
 
 -- | Which version of Alex is targeted?
-data AlexVersion = Alex1 | Alex2 | Alex3
+data AlexVersion = Alex1 | Alex2 | Alex3 | Alex3Inc
   deriving (Show,Eq,Ord,Bounded,Enum)
 
 -- | Happy modes
@@ -184,8 +185,10 @@ specificOptions =
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
   , ( Option []    ["alex3"] (NoArg (\o -> o {alexMode = Alex3}))
           "Use Alex 3 as Haskell lexer tool (default)"
+      , Option []    ["alex3inc"] (NoArg (\o -> o {alexMode = Alex3Inc}))
+          "Use Incremental Alex 3 as Haskell lexer tool"
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
-  , ( Option []    ["sharestrings"] (NoArg (\o -> o {shareStrings = True}))
+      , Option []    ["sharestrings"] (NoArg (\o -> o {shareStrings = True}))
           "Use string sharing in Alex 2 lexer"
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
   , ( Option []    ["bytestrings"] (NoArg (\o -> o {byteStrings = True}))
@@ -227,7 +230,7 @@ allOptions = targetOptions ++ commonOption ++ map fst specificOptions
 -- ~~~ Help strings ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 title :: String
 title = unlines [
-  "The BNF Converter, "++showVersion version,
+--  "The BNF Converter, "++showVersion version,
   "(c) Jonas Almström Duregård, Krasimir Angelov, Jean-Philippe Bernardy, Björn Bringert, Johan Broberg, Paul Callaghan, ",
   "    Grégoire Détrez, Markus Forsberg, Ola Frid, Peter Gammie, Thomas Hallgren, Patrik Jansson, ",
   "    Kristofer Johannisson, Antti-Juhani Kaijanaho, Ulf Norell, ",
