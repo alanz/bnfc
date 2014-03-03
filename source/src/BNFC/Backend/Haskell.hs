@@ -62,8 +62,13 @@ makeHaskell opts cf = do
       layMod = layoutFileM opts
       errMod = errFileM opts
       shareMod = shareFileM opts
+      incremental = alexMode opts == Alex3Inc
   do
-    mkfile (absFile opts) $ cf2Abstract (byteStrings opts) (ghcExtensions opts) (functor opts) absMod cf
+    let dir = codeDir opts
+    unless (null dir) $ do
+      putStrLn $ "Creating directory " ++ dir
+      prepareDir dir
+    mkfile (absFile opts) $ cf2Abstract incremental (byteStrings opts) (ghcExtensions opts) (functor opts) absMod cf
     case alexMode opts of
       Alex1 -> do
         mkfile (alexFile opts) $ cf2alex lexMod errMod cf
@@ -85,7 +90,7 @@ makeHaskell opts cf = do
       mkFile (tFile opts)        $ testfile opts cf
     mkFile (txtFile opts)      $ cfToTxt (lang opts) cf
     mkFile (templateFile opts) $ cf2Template (templateFileM opts) absMod errMod cf
-    mkFile (printerFile opts)  $ cf2Printer (byteStrings opts) prMod absMod cf
+    mkFile (printerFile opts)  $ cf2Printer incremental (byteStrings opts) prMod absMod cf
     when (hasLayout cf) $ mkFile (layoutFile opts) $ cf2Layout (alex1 opts) (inDir opts) layMod lexMod cf
     mkFile (errFile opts)      $ mkErrM errMod (ghcExtensions opts)
     when (shareStrings opts) $ mkFile (shareFile opts)    $ sharedString shareMod (byteStrings opts) cf
