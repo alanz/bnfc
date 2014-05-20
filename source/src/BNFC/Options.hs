@@ -69,6 +69,7 @@ data SharedOptions = Options
   , cnf :: Bool               -- ^ Generate CNF-like tables?
   , lang :: String
   -- Haskell specific:
+  , incremental :: Bool
   , alexMode :: AlexVersion
   , javaLexerParser :: JavaLexerParser
   , inDir :: Bool
@@ -95,6 +96,7 @@ defaultOptions :: SharedOptions
 defaultOptions = Options
   { cnf = False
   , target = TargetHaskell
+  , incremental = False
   , inPackage = Nothing
   , make = Nothing
   , alexMode = Alex3
@@ -184,11 +186,11 @@ specificOptions =
           "Use Alex 2 as Haskell lexer tool"
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
   , ( Option []    ["alex3"] (NoArg (\o -> o {alexMode = Alex3}))
-          "Use Alex 3 as Haskell lexer tool (default)"
-      , Option []    ["alex3inc"] (NoArg (\o -> o {alexMode = Alex3Inc}))
+          "Use Alex 3 as Haskell lexer tool (default)" )
+  , ( Option []    ["alex3inc"] (NoArg (\o -> o {alexMode = Alex3Inc}))
           "Use Incremental Alex 3 as Haskell lexer tool"
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
-      , Option []    ["sharestrings"] (NoArg (\o -> o {shareStrings = True}))
+  , ( Option []    ["sharestrings"] (NoArg (\o -> o {shareStrings = True}))
           "Use string sharing in Alex 2 lexer"
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
   , ( Option []    ["bytestrings"] (NoArg (\o -> o {byteStrings = True}))
@@ -212,6 +214,12 @@ specificOptions =
   , ( Option []    ["functor"] (NoArg (\o -> o {functor = True}))
           "Make the AST a functor and use it to store the position of the nodes"
     , [TargetHaskell] )
+  , ( Option []    ["cnf"] (NoArg (\o -> o {cnf = True}))
+          "Use the CNF parser instead of happy"
+    , [TargetHaskell] )
+  , ( Option []    ["incremental"] (NoArg (\o -> o {incremental = True, cnf = True, alexMode = Alex3Inc}))
+          "Use the incremental parser and lexer (implies --cnf and --alex3inc)"
+    , [TargetHaskell] )
   ]
 
 
@@ -234,7 +242,7 @@ title = unlines [
   "(c) Jonas Almström Duregård, Krasimir Angelov, Jean-Philippe Bernardy, Björn Bringert, Johan Broberg, Paul Callaghan, ",
   "    Grégoire Détrez, Markus Forsberg, Ola Frid, Peter Gammie, Thomas Hallgren, Patrik Jansson, ",
   "    Kristofer Johannisson, Antti-Juhani Kaijanaho, Ulf Norell, ",
-  "    Michael Pellauer and Aarne Ranta 2002 - 2013.",
+  "    Tobias Olausson, Michael Pellauer and Aarne Ranta 2002 - 2014.",
   "Free software under GNU General Public License (GPL).",
   "Bug reports to bnfc-dev@googlegroups.com."
  ]
