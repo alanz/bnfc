@@ -186,7 +186,8 @@ specificOptions =
           "Use Alex 2 as Haskell lexer tool"
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
   , ( Option []    ["alex3"] (NoArg (\o -> o {alexMode = Alex3}))
-          "Use Alex 3 as Haskell lexer tool (default)" )
+          "Use Alex 3 as Haskell lexer tool (default)"
+    , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
   , ( Option []    ["alex3inc"] (NoArg (\o -> o {alexMode = Alex3Inc}))
           "Use Incremental Alex 3 as Haskell lexer tool"
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )

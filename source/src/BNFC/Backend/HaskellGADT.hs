@@ -70,7 +70,7 @@ makeHaskellGadt opts cf = do
       cf2HappyS parMod absMod lexMod errMod (glr opts) (byteStrings opts) False cf
     liftIO $ putStrLn "   (Tested with Happy 1.15)"
     mkfile (templateFile opts) $ cf2Template (templateFileM opts) absMod errMod cf
-    mkfile (printerFile opts)  $ cf2Printer False False True prMod absMod cf
+    mkfile (printerFile opts)  $ cf2Printer False False False True prMod absMod cf
     when (hasLayout cf) $ mkfile (layoutFile opts) $ cf2Layout (alexMode opts == Alex1) (inDir opts) layMod lexMod cf
     mkfile (tFile opts)        $ Haskell.testfile opts cf
     mkfile (errFile opts) $ mkErrM errMod (ghcExtensions opts)

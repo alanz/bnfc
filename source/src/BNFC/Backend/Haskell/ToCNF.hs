@@ -178,7 +178,8 @@ tokInfo cf = (catChar,"TC",Con "getHead"):
              (catInteger,"TI",Con "readInteger"):
              (catDouble,"TD",Con "readDouble"):
              [(catIdent,"TV",Con "Ident") | hasIdent cf] ++
-             [(t,"T_" <> text t,(Con t)) | t <- tokenNames cf]
+             [(t,"T_" <> text (show t),(Con (show t))) | (t,_) <- tokenPragmas cf]
+
 
 genTokCommon cf xs = prettyPair (gen <$> splitOptim fst cf xs)
   where gen ys = prettyListFun [p (ppPair (catTag x,y)) | ((x,y),p) <- ys]

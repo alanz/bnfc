@@ -24,7 +24,7 @@ module BNFC.Backend.Haskell.CFtoAlex3Incremental (cf2alex3inc) where
 
 --
 -- The technique used in this backend for incremental lexing was described by
--- Jonas Hugo and Kristofer Hansson in their master's thesis "A Generator of 
+-- Jonas Hugo and Kristofer Hansson in their master's thesis "A Generator of
 -- Incremental Divide-and-Conquer Lexers" at Chalmers University of Technology
 -- 2014.
 --
@@ -81,7 +81,7 @@ cMacros = [
 
 rMacros :: CF -> [String]
 rMacros cf =
-  let symbs = cfTokens cf
+  let symbs = cfgSymbols cf
   in
   (if null symbs then [] else [
    "@rsyms =    -- symbols and non-identifier-like reserved words",
@@ -89,7 +89,7 @@ rMacros cf =
    "   " ++ unwords (intersperse "|" (map mkEsc symbs))
    ])
  where
-  mkEsc = unwords . esc . fst
+  mkEsc = unwords . esc
   esc s = if null a then rest else show a : rest
       where (a,r) = span isAlphaNum s
             rest = case r of
@@ -103,34 +103,32 @@ restOfAlex shareMod shareStrings byteStrings cf = [
   ":-",
   lexComments (comments cf),
   "$white+ ;",
-  pTSpec (cfTokens cf),
+  pTSpec (cfgSymbols cf),
 
   userDefTokenTypes,
   ident,
 
-  ifC "String" ("\\\" ([$u # [\\\" \\\\ \\n]] | (\\\\ (\\\" | \\\\ | \\' | n | t)))* \\\"" ++
+  ifC catString ("\\\" ([$u # [\\\" \\\\ \\n]] | (\\\\ (\\\" | \\\\ | \\' | n | t)))* \\\"" ++
                   "{ tok (\\p s -> PT p (TL $ share $ unescapeInitTail s)) }"),
-  ifC "Char"    "\\\' ($u # [\\\' \\\\] | \\\\ [\\\\ \\\' n t]) \\'  { tok (\\p s -> PT p (TC $ share s))  }",
-  ifC "Integer" "$d+      { tok (\\p s -> PT p (TI $ share s))    }",
-  ifC "Double"  "$d+ \\. $d+ (e (\\-)? $d+)? { tok (\\p s -> PT p (TD $ share s)) }",
+  ifC catChar    "\\\' ($u # [\\\' \\\\] | \\\\ [\\\\ \\\' n t]) \\'  { tok (\\p s -> PT p (TC $ share s))  }",
+  ifC catInteger "$d+      { tok (\\p s -> PT p (TI $ share s))    }",
+  ifC catDouble  "$d+ \\. $d+ (e (\\-)? $d+)? { tok (\\p s -> PT p (TD $ share s)) }",
   "",
   "{",
   "",
-  "tokens :: Measured v IntToken => String -> FingerTree v IntToken",
-  "tokens str = stateToTree $ measure $ makeTree str",
-  "",
+  "tok :: (Posn -> String -> Token) -> (Posn -> String -> Token)",
   "tok f p s = f p s",
   "",
   "share :: "++stringType++" -> "++stringType,
   "share = " ++ if shareStrings then "shareString" else "id",
   "",
   "data Tok =",
-  "   TS !("++stringType++") !Int    -- reserved words and symbols",
-  " | TL !("++stringType++")         -- string literals",
-  " | TI !("++stringType++")         -- integer literals",
-  " | TV !("++stringType++")         -- identifiers",
-  " | TD !("++stringType++")         -- double precision float literals",
-  " | TC !("++stringType++")         -- character literals",
+  "   TS !"++stringType++" !Int    -- reserved words and symbols",
+  " | TL !"++stringType++"         -- string literals",
+  " | TI !"++stringType++"         -- integer literals",
+  " | TV !"++stringType++"         -- identifiers",
+  " | TD !"++stringType++"         -- double precision float literals",
+  " | TC !"++stringType++"         -- character literals",
   userDefTokenConstrs,
   " deriving (Eq,Show,Ord)",
   "",
@@ -139,26 +137,38 @@ restOfAlex shareMod shareStrings byteStrings cf = [
   " | Err Posn",
   "  deriving (Eq,Show,Ord)",
   "",
-  "tokenPos (PT (Pn _ l _) _ :_) = \"line \" ++ show l",
-  "tokenPos (Err (Pn _ l _) :_) = \"line \" ++ show l",
-  "tokenPos _ = \"end of file\"",
+  "printPosn :: Posn -> String",
+  "printPosn (Pn _ l c) = \"line \" ++ show l ++ \", column \" ++ show c",
   "",
+  "tokenPos :: [Token] -> String",
+  "tokenPos (t:_) = printPosn (tokenPosn t)",
+  "tokenPos [] = \"end of file\"",
+  "",
+  "tokenPosn :: Token -> Posn",
   "tokenPosn (PT p _) = p",
   "tokenPosn (Err p) = p",
+  "",
+  "tokenLineCol :: Token -> (Int, Int)",
   "tokenLineCol = posLineCol . tokenPosn",
+  "",
+  "posLineCol :: Posn -> (Int, Int)",
   "posLineCol (Pn _ l c) = (l,c)",
+  "",
+  "mkPosToken :: Token -> ((Int, Int), String)",
   "mkPosToken t@(PT p _) = (posLineCol p, prToken t)",
   "",
+  "prToken :: Token -> String",
   "prToken t = case t of",
   "  PT _ (TS s _) -> s",
-  "  PT _ (TL s)   -> s",
+  "  PT _ (TL s)   -> show s",
   "  PT _ (TI s)   -> s",
   "  PT _ (TV s)   -> s",
   "  PT _ (TD s)   -> s",
   "  PT _ (TC s)   -> s",
+  "  Err _         -> \"#error\"",
   userDefTokenPrint,
   "",
-  "data BTree = N | B ("++stringType++") Tok BTree BTree deriving (Show)",
+  "data BTree = N | B "++stringType++" Tok BTree BTree deriving (Show)",
   "",
   "eitherResIdent :: ("++stringType++" -> Tok) -> "++stringType++" -> Tok",
   "eitherResIdent tv s = treeFind resWords",
@@ -168,19 +178,20 @@ restOfAlex shareMod shareStrings byteStrings cf = [
   "                              | s > a  = treeFind right",
   "                              | s == a = t",
   "",
-  "resWords = " ++ (show $ sorted2tree $ cfTokens $ cf),
+  "resWords :: BTree",
+  "resWords = " ++ show (sorted2tree $ cfTokens cf),
   "   where b s n = let bs = "++stringPack++" s",
   "                  in B bs (TS bs n)",
   "",
   "unescapeInitTail :: "++stringType++" -> "++stringType++"",
-  "unescapeInitTail = unesc . tail . toList where",
+  "unescapeInitTail = "++stringPack++" . unesc . tail . "++stringUnpack++" where",
   "  unesc s = case s of",
-  "    '\\\\':c:cs | elem c ['\\\"', '\\\\', '\\\''] -> S.singleton c <> unesc cs",
-  "    '\\\\':'n':cs  -> S.singleton '\\n' <> unesc cs",
-  "    '\\\\':'t':cs  -> S.singleton '\\t' <> unesc cs",
-  "    '\"':[]    -> mempty",
-  "    c:cs      -> S.singleton c <> unesc cs",
-  "    _         -> mempty",
+  "    '\\\\':c:cs | elem c ['\\\"', '\\\\', '\\\''] -> c : unesc cs",
+  "    '\\\\':'n':cs  -> '\\n' : unesc cs",
+  "    '\\\\':'t':cs  -> '\\t' : unesc cs",
+  "    '\"':[]    -> []",
+  "    c:cs      -> c : unesc cs",
+  "    _         -> []",
   "",
   "-------------------------------------------------------------------",
   "-- Alex wrapper code.",
@@ -198,7 +209,38 @@ restOfAlex shareMod shareStrings byteStrings cf = [
   "alexMove (Pn a l c) '\\n' = Pn (a+1) (l+1)   1",
   "alexMove (Pn a l c) _    = Pn (a+1)  l     (c+1)",
   "",
-  "  -- | Encode a Haskell String to a list of Word8 values, in UTF8 format.",
+  "type Byte = Word8",
+  "",
+  "type AlexInput = (Posn,     -- current position,",
+  "                  Char,     -- previous char",
+  "                  [Byte],   -- pending bytes on the current char",
+  "                  "++stringType++")   -- current input string",
+  "",
+  "tokens :: "++stringType++" -> [Token]",
+  "tokens str = go (alexStartPos, '\\n', [], str)",
+  "    where",
+  "      go :: AlexInput -> [Token]",
+  "      go inp@(pos, _, _, str) =",
+  "               case alexScan inp 0 of",
+  "                AlexEOF                   -> []",
+  "                AlexError (pos, _, _, _)  -> [Err pos]",
+  "                AlexSkip  inp' len        -> go inp'",
+  "                AlexToken inp' len act    -> act pos ("++stringTake++" len str) : (go inp')",
+  "",
+  "alexGetByte :: AlexInput -> Maybe (Byte,AlexInput)",
+  "alexGetByte (p, c, (b:bs), s) = Just (b, (p, c, bs, s))",
+  "alexGetByte (p, _, [], s) =",
+  "  case "++stringUncons++" s of",
+  "    "++stringNilP++"  -> Nothing",
+  "    "++stringConsP++" ->",
+  "             let p'     = alexMove p c",
+  "                 (b:bs) = utf8Encode c",
+  "              in p' `seq` Just (b, (p', c, bs, s))",
+  "",
+  "alexInputPrevChar :: AlexInput -> Char",
+  "alexInputPrevChar (p, c, bs, s) = c",
+  "",
+  "-- | Encode a Haskell String to a list of Word8 values, in UTF8 format.",
   "utf8Encode :: Char -> [Word8]",
   "utf8Encode = map fromIntegral . go . ord",
   " where",
@@ -440,22 +482,23 @@ restOfAlex shareMod shareStrings byteStrings cf = [
   "}"
   ]
  where
-   stringType = "S.Seq Char"
-   stringPack = "S.fromList"
+   (stringType,stringTake,stringUncons,stringPack,stringUnpack,stringNilP,stringConsP)
+       | byteStrings = ("BS.ByteString", "BS.take", "BS.uncons", "BS.pack", "BS.unpack", "Nothing", "Just (c,s)")
+       | otherwise   = ("String",        "take",    "",          "id",      "id",        "[]",      "(c:s)"     )
 
    ifC cat s = if isUsedCat cf cat then s else ""
    lexComments ([],[])           = []
    lexComments (xs,s1:ys) = '\"' : s1 ++ "\"" ++ " [.]* ; -- Toss single line comments\n" ++ lexComments (xs, ys)
    lexComments (([l1,l2],[r1,r2]):xs,[]) = concat $
-					[
-					('\"':l1:l2:"\" ([$u # \\"), -- FIXME quotes or escape?
-					(l2:"] | \\"),
-					(r1:" [$u # \\"),
-					(r2:"])* (\""),
-					(r1:"\")+ \""),
-					(r2:"\" ; \n"),
-					lexComments (xs, [])
-					]
+                                        [
+                                        ('\"':l1:l2:"\" ([$u # \\"), -- FIXME quotes or escape?
+                                        (l2:"] | \\"),
+                                        (r1:" [$u # \\"),
+                                        (r2:"])* (\""),
+                                        (r1:"\")+ \""),
+                                        (r2:"\" ; \n"),
+                                        lexComments (xs, [])
+                                        ]
    lexComments ((_:xs),[]) = lexComments (xs,[])
 ---   lexComments (xs,(_:ys)) = lexComments (xs,ys)
 
@@ -465,12 +508,12 @@ restOfAlex shareMod shareStrings byteStrings cf = [
 
    userDefTokenTypes = unlines $
      [printRegAlex exp ++
-      " { tok (\\p s -> PT p (eitherResIdent (T_"  ++ name ++ " . share) s)) }"
+      " { tok (\\p s -> PT p (eitherResIdent (T_"  ++ show name ++ " . share) s)) }"
       | (name,exp) <- tokenPragmas cf]
-   userDefTokenConstrs = unlines $
-     [" | T_" ++ name ++ " !("++stringType++")" | (name,_) <- tokenPragmas cf]
-   userDefTokenPrint = unlines $
-     ["  PT _ (T_" ++ name ++ " s) -> s" | (name,_) <- tokenPragmas cf]
+   userDefTokenConstrs = unlines
+     [" | T_" ++ name ++ " !"++stringType | name <- tokenNames cf]
+   userDefTokenPrint = unlines
+     ["  PT _ (T_" ++ name ++ " s) -> s" | name <- tokenNames cf]
 
    ident =
      "$l $i*   { tok (\\p s -> PT p (eitherResIdent (TV . share) s)) }"
@@ -482,14 +525,14 @@ data BTree = N | B String Int BTree BTree
 instance Show BTree where
     showsPrec _ N = showString "N"
     showsPrec n (B s k l r) = wrap (showString "b " . shows s  . showChar ' '. shows k  . showChar ' '
-				    . showsPrec 1 l . showChar ' '
-				    . showsPrec 1 r)
-	where wrap f = if n > 0 then showChar '(' . f . showChar ')' else f
+                                    . showsPrec 1 l . showChar ' '
+                                    . showsPrec 1 r)
+        where wrap f = if n > 0 then showChar '(' . f . showChar ')' else f
 
 sorted2tree :: [(String,Int)] -> BTree
 sorted2tree [] = N
 sorted2tree xs = B x n (sorted2tree t1) (sorted2tree t2) where
-  (t1,((x,n):t2)) = splitAt (length xs `div` 2) xs
+  (t1, (x,n) : t2) = splitAt (length xs `div` 2) xs
 
 
 -------------------------------------------------------------------
@@ -508,18 +551,18 @@ printRegAlex = render . prt 0
 render :: [String] -> String
 render = rend 0
     where rend :: Int -> [String] -> String
-	  rend i ss = case ss of
-		        "["      :ts -> cons "["  $ rend i ts
-			"("      :ts -> cons "("  $ rend i ts
-			t  : "," :ts -> cons t    $ space "," $ rend i ts
-		        t  : ")" :ts -> cons t    $ cons ")"  $ rend i ts
-			t  : "]" :ts -> cons t    $ cons "]"  $ rend i ts
-			t        :ts -> space t   $ rend i ts
-			_            -> ""
+          rend i ss = case ss of
+                        "["      :ts -> cons "["  $ rend i ts
+                        "("      :ts -> cons "("  $ rend i ts
+                        t  : "," :ts -> cons t    $ space "," $ rend i ts
+                        t  : ")" :ts -> cons t    $ cons ")"  $ rend i ts
+                        t  : "]" :ts -> cons t    $ cons "]"  $ rend i ts
+                        t        :ts -> space t   $ rend i ts
+                        _            -> ""
 
-	  cons s t  = s ++ t
-	  new i s   = s
-	  space t s = if null s then t else t ++ " " ++ s
+          cons s t  = s ++ t
+          new i s   = s
+          space t s = if null s then t else t ++ " " ++ s
 
 parenth :: [String] -> [String]
 parenth ss = ["("] ++ ss ++ [")"]
@@ -528,14 +571,19 @@ parenth ss = ["("] ++ ss ++ [")"]
 class Print a where
   prt :: Int -> a -> [String]
   prtList :: [a] -> [String]
-  prtList = concat . map (prt 0)
+  prtList = concatMap (prt 0)
 
 instance Print a => Print [a] where
   prt _ = prtList
 
 instance Print Char where
-  prt _ c = if isAlphaNum c then [[c]] else ['\\':[c]]
-  prtList s = map (concat . prt 0) s
+  prt _ c = case c of
+             '\n' -> ["\\n"]
+             '\t' -> ["\\t"]
+             c | isAlphaNum c -> [[c]]
+             c | isPrint c    -> ['\\':[c]]
+             c                -> ['\\':show (ord c)]
+  prtList = map (concat . prt 0)
 
 prPrec :: Int -> Int -> [String] -> [String]
 prPrec i j = if j<i then parenth else id
@@ -545,18 +593,18 @@ instance Print Ident where
 
 instance Print Reg where
   prt i e = case e of
-   RSeq reg0 reg -> prPrec i 2 (concat [prt 2 reg0 , prt 3 reg])
-   RAlt reg0 reg -> prPrec i 1 (concat [prt 1 reg0 , ["|"] , prt 2 reg])
-   RMinus reg0 reg -> prPrec i 1 (concat [prt 2 reg0 , ["#"] , prt 2 reg])
-   RStar reg -> prPrec i 3 (concat [prt 3 reg , ["*"]])
-   RPlus reg -> prPrec i 3 (concat [prt 3 reg , ["+"]])
-   ROpt reg  -> prPrec i 3 (concat [prt 3 reg , ["?"]])
-   REps  -> prPrec i 3 (["$"])
-   RChar c -> prPrec i 3 (concat [prt 0 c])
-   RAlts str -> prPrec i 3 (concat [["["],prt 0 str,["]"]])
-   RSeqs str -> prPrec i 2 (concat (map (prt 0) str))
-   RDigit  -> prPrec i 3 (concat [["$d"]])
-   RLetter  -> prPrec i 3 (concat [["$l"]])
-   RUpper  -> prPrec i 3 (concat [["$c"]])
-   RLower  -> prPrec i 3 (concat [["$s"]])
-   RAny  -> prPrec i 3 (concat [["$u"]])
+   RSeq reg0 reg    -> prPrec i 2 (prt 2 reg0 ++ prt 3 reg)
+   RAlt reg0 reg    -> prPrec i 1 (concat [prt 1 reg0 , ["|"] , prt 2 reg])
+   RMinus reg0 reg  -> prPrec i 1 (concat [prt 2 reg0 , ["#"] , prt 2 reg])
+   RStar reg        -> prPrec i 3 (prt 3 reg ++ ["*"])
+   RPlus reg        -> prPrec i 3 (prt 3 reg ++ ["+"])
+   ROpt reg         -> prPrec i 3 (prt 3 reg ++ ["?"])
+   REps             -> prPrec i 3 ["()"]
+   RChar c          -> prPrec i 3 (prt 0 c)
+   RAlts str        -> prPrec i 3 (concat [["["],prt 0 str,["]"]])
+   RSeqs str        -> prPrec i 2 (concatMap (prt 0) str)
+   RDigit           -> prPrec i 3 ["$d"]
+   RLetter          -> prPrec i 3 ["$l"]
+   RUpper           -> prPrec i 3 ["$c"]
+   RLower           -> prPrec i 3 ["$s"]
+   RAny             -> prPrec i 3 ["$u"]

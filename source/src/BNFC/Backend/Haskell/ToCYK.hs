@@ -93,19 +93,23 @@ measured opts = vcat $
 -- Create one function for each entrypoint category, so user can decide on which
 -- one to use.
 toAST cf = vcat $
-    "--use these functions to convert from parser-internal state to AST" : 
-    [ vcat $ 
-      ["get" <> text c <> " :: (CATEGORY,Any) -> Maybe " <> text c
-      ,"get" <> text c <> " ("<>catTag (Left c)<>",ast) = Just $ ((unsafeCoerce# ast)::"<> text c <> ")"
-      ,"get" <> text c <> " _ = Nothing"
+    "--use these functions to convert from parser-internal state to AST" :
+    [ vcat $
+      ["get" <> toText c <> " :: (CATEGORY,Any) -> Maybe " <> toText c
+      ,"get" <> toText c <> " ("<>catTag (Left c)<>",ast) = Just $ ((unsafeCoerce# ast)::"<> toText c <> ")"
+      ,"get" <> toText c <> " _ = Nothing"
       ,""
-      ,"getAll" <> text c <> " :: [(a,[(CATEGORY,Any)],a)] -> [Maybe " <> text c <> "]"
-      ,"getAll" <> text c <> " = concatMap (\\(_,cs,_) -> map get" <> text c <> " cs)"
+      ,"getAll" <> toText c <> " :: [(a,[(CATEGORY,Any)],a)] -> [Maybe " <> toText c <> "]"
+      ,"getAll" <> toText c <> " = concatMap (\\(_,cs,_) -> map get" <> toText c <> " cs)"
       ,""
       ] | c <- allEntryPoints cf
     ]
+  where
+    toText cc = text $ show cc
 
 -- Make sure all entrypoint functions are exported, together with needed types
 exports cf = cat e <> "CATEGORY, Any, parse"
-  where e = ["get" <> text c <> ", getAll" <> text c <> "," | c <- allEntryPoints cf]
+  where
+    e = ["get" <> toText c <> ", getAll" <> toText c <> "," | c <- allEntryPoints cf]
+    toText cc = text $ show cc
 

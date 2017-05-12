@@ -64,6 +64,7 @@ data Vec :: Shape -> * -> * where
 row Zero Zero = Zero
 row x y = Row x y
 
+col :: Mat Leaf y1 a -> Mat Leaf y2 a -> Mat Leaf (Bin y1 y2) a
 col Zero Zero = Zero
 col x y = Col x y
 
@@ -164,6 +165,8 @@ mkSing (Bin' _ x1 x2) Leaf' a = row (mkSing x1 Leaf' a) Zero
 
 data SomeTri a where
   T :: Shape' s -> Pair (Mat s s a) -> SomeTri a
+
+type Q a = SomeTri a
 
 mkUpDiag :: AbelianGroupZ a => [a] -> Shape' s -> Mat s s a
 mkUpDiag [] Leaf' = Zero
@@ -326,32 +329,26 @@ chopLast (Bin' _ x1 x2) (Quad a b c d :/: Quad a' b' c' d') k =
     in k (ContinueX q) (bin' x1 x2') (quad' (a :/: a') b'' zero d'') (Col <$> e <*> f)
 chopLast sh mat k = error $ "shape: " ++ show sh ++ ", matrix: " ++ show mat -- DEBUG
 
-mkLast :: RingP a => Shape' y -> Mat x Leaf a -> Mat x y a
-mkLast Leaf' m = m
-mkLast (Bin' _ _ y) Zero = Zero
-mkLast (Bin' _ _ y) (One a) = Col zero (mkLast y $ One a)
-mkLast (Bin' _ _ y) (Row a b) = Quad zero zero (mkLast y a) (mkLast y b)
-
-instance Functor (Mat x y) where
-    fmap f (Quad a b c d) = quad (fmap f a) (fmap f b) (fmap f c) (fmap f d)
-    fmap f Zero = Zero
-    fmap f (One a) = One (f a)
-    fmap f (Row a b) = row (fmap f a) (fmap f b) 
-    fmap f (Col a b) = col (fmap f a) (fmap f b)
+-- instance Functor (Mat x y) where
+--     fmap f (Quad a b c d) = quad (fmap f a) (fmap f b) (fmap f c) (fmap f d)
+--     fmap f Zero = Zero
+--     fmap f (One a) = One (f a)
+--     fmap f (Row a b) = row (fmap f a) (fmap f b) 
+--     fmap f (Col a b) = col (fmap f a) (fmap f b)
   
-instance Applicative (Mat x y) where
-  Zero <*> _ = Zero
-  _ <*> Zero = Zero
-  One a <*> One b = One (a b)
-  Row a b <*> Row c d = row (a <*> c) (b <*> d)
-  Col a b <*> Col c d = col (a <*> c) (b <*> d)
-  Quad f g h i <*> Quad a b c d = quad (f <*> a) (g <*> b) (h <*> c) (i <*> d)
-  a <*> b = error $ "Applicative: " ++ (show a) ++ " <*> " ++ (show b) -- DEBUG
-  pure a = error "pure: cannot lift a value to Mat x y a"
+-- instance Applicative (Mat x y) where
+--   Zero <*> _ = Zero
+--   _ <*> Zero = Zero
+--   One a <*> One b = One (a b)
+--   Row a b <*> Row c d = row (a <*> c) (b <*> d)
+--   Col a b <*> Col c d = col (a <*> c) (b <*> d)
+--   Quad f g h i <*> Quad a b c d = quad (f <*> a) (g <*> b) (h <*> c) (i <*> d)
+--   a <*> b = error $ "Applicative: " ++ (show a) ++ " <*> " ++ (show b) -- DEBUG
+--   pure a = error "pure: cannot lift a value to Mat x y a"
   
-instance RingP a => RingP (Pair a) where
-    mul b (p :/: q) (x :/: y) = mul b p x :/: mul b q y
-  -- TODO: What is this function supposed to do?
+-- instance RingP a => RingP (Pair a) where
+--     mul b (p :/: q) (x :/: y) = mul b p x :/: mul b q y
+--   -- TODO: What is this function supposed to do?
   
 -- Push a value down
 mkLast' :: RingP a => Shape' y -> Mat x Leaf (Pair a) -> Mat x y (Pair a)
@@ -366,6 +363,12 @@ mkLast Leaf' m = m
 mkLast (Bin' _ _ y) Zero = zero
 mkLast (Bin' _ _ y) (One a) = col zero (mkLast y $ one a)
 mkLast (Bin' _ _ y) (Row a b) = quad zero zero (mkLast y a) zero
+-- mkLast :: RingP a => Shape' y -> Mat x Leaf a -> Mat x y a
+-- mkLast Leaf' m = m
+-- mkLast (Bin' _ _ y) Zero = Zero
+-- mkLast (Bin' _ _ y) (One a) = Col zero (mkLast y $ One a)
+-- mkLast (Bin' _ _ y) (Row a b) = Quad zero zero (mkLast y a) (mkLast y b)
+
 
 -- | Merge two upper triangular matricies without a middle element.
 merge :: RingP a => Bool -> SomeTri a -> SomeTri a -> SomeTri a
