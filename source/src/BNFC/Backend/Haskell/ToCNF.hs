@@ -79,6 +79,8 @@ prettyUnitSet units = vcat [prettyExp f <> " : " <> catTag cat <> " --> " <> tex
 
 header opts
        = vcat $ ["{-# LANGUAGE MagicHash, FlexibleInstances #-}"
+              ,"{-# LANGUAGE TypeFamilies #-}"
+              ,"{-# LANGUAGE TypeSynonymInstances #-}"
               ,"module " <> text (cnfTablesFileM opts) <> " where"
               ,"import GHC.Prim"
               ,"import Control.Applicative hiding (Const)"
@@ -108,7 +110,8 @@ header opts
               ,"getHead = head"
               ,"toString = id"
               ]) ++
-              ["instance RingP [(CATEGORY,Any)] where"
+              -- See https://ghc.haskell.org/trac/ghc/ticket/3485 for the following line
+              ["instance ([(CATEGORY,Any)] ~ foo) => RingP foo where"
               ,"  mul p a b = trav [map (app tx ty) l :/: map (app tx ty) r | (x,tx) <- a, (y,ty) <- b, let l:/:r = combine p x y]"
               ,"    where trav :: [Pair [a]] -> Pair [a]"
               ,"          trav [] = pure []"
@@ -207,13 +210,17 @@ genNeighborSet ns = vcat
 ------------------------
 -- Test file generation
 
-genTestFile opts _ = render $ vcat
+genTestFile :: Options -> CF -> String
+genTestFile opts cf = render $ vcat
     ["module Main where"
     ,"import " <> text ( alexFileM     opts)
     ,"import " <> text ( cnfTablesFileM opts)
+    ,"import " <> text ( cnfIncrementalCYKFileM opts)
     ,"import Parsing.TestProgram"
-    ,"main = mainTest showAst tokenToCats tokens tokenLineCol describe neighbors"]
-
+    ,"-- main = mainTest showAst tokenToCats tokens tokenLineCol describe neighbors"
+    -- ,"main = mainTestIncremental showAst tokenToCats tokens tokenLineCol describe neighbors"
+    ,"main = undefined"
+    ]
 
 genBenchmark opts = render $ vcat
    ["import System.Environment ( getArgs )"

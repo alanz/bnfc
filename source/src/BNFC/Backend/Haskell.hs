@@ -116,6 +116,7 @@ makefile opts = makeA where
       [ Makefile.mkRule "all" []
            ([ "happy -gca " ++ glr_params ++ happyFile opts | not (cnf opts) ] ++
             [ "alex -g " ++ alexFile opts ] ++
+            -- [ "alex --ghc --debug " ++ alexFile opts ] ++ -- Need ghc and debug flags, otherwise wrong template is used
             [ if cnf opts
               then "ghc --make TestCNF.hs"
               else "ghc --make " ++ tFile opts ++ " -o " ++ mkFile withLang "Test" "" opts])

@@ -40,11 +40,13 @@ import Text.PrettyPrint.HughesPJ hiding (first,(<>))
 -- will stay the same anyway (they are top-level definitions).
 generate opts cf0 = render $ vcat [header opts cf0
                                   ,measured opts
-                                  ,toAST cf0
+                                  -- ,toAST cf0
                                   ]
 
 header opts cf = vcat $ 
     ["{-# LANGUAGE MagicHash, FlexibleInstances, MultiParamTypeClasses #-}"
+    ,"{-# LANGUAGE UndecidableInstances #-}"
+    ,"{-# LANGUAGE TypeFamilies #-}"
     ,"module " <> text (incCykFileM opts) <> "("<> exports cf <> ") where"
     ,"import GHC.Prim"
     ,"import GHC.Exts"
@@ -70,7 +72,7 @@ measured opts = vcat $
     ,"      b <- randomIO"
     ,"      return $ merge b t0 t1"
     ,""
-    ,"instance Measured (SomeTri [(CATEGORY,Any)]) IntToken where"
+    ,"instance ((SomeTri [(CATEGORY,Any)]) ~ foo) => Measured foo IntToken where"
     ,"    -- Note: place the token just above the diagonal"
     ,"    measure tok = T (bin' Leaf' Leaf') (q True :/: q False)"
     ,"      where q b = quad zero (t b) zero zero"
@@ -84,9 +86,12 @@ measured opts = vcat $
     ,"parse tree = results $ measure tree"
     ,""
     ,"intToToken :: IntToken -> Maybe Token"
-    ,"intToToken (Token lexeme acc) = case acc of"
-    ,"    AlexAcc f   -> Just $ f (Pn 0 1 1) lexeme"
-    ,"    _           -> Nothing"
+    -- ,"intToToken (Token lexeme acc) = case acc of"
+    -- ,"    AlexAccPred f -> Just $ f (Pn 0 1 1) lexeme"
+    -- ,"    _             -> Nothing"
+    ,"intToToken (Token lexeme acc f) = case acc of"
+    ,"    AlexAcc _ -> Just $ f (Pn 0 1 1) lexeme"
+    ,"    _         -> Nothing"
     ,""
     ]
 
@@ -110,6 +115,7 @@ toAST cf = vcat $
 -- Make sure all entrypoint functions are exported, together with needed types
 exports cf = cat e <> "CATEGORY, Any, parse"
   where
-    e = ["get" <> toText c <> ", getAll" <> toText c <> "," | c <- allEntryPoints cf]
+    -- e = ["get" <> toText c <> ", getAll" <> toText c <> "," | c <- allEntryPoints cf]
+    e = []
     toText cc = text $ show cc
 
