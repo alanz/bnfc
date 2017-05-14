@@ -217,9 +217,9 @@ genTestFile opts cf = render $ vcat
     ,"import " <> text ( cnfTablesFileM opts)
     ,"import " <> text ( cnfIncrementalCYKFileM opts)
     ,"import Parsing.TestProgram"
-    ,"-- main = mainTest showAst tokenToCats tokens tokenLineCol describe neighbors"
-    -- ,"main = mainTestIncremental showAst tokenToCats tokens tokenLineCol describe neighbors"
-    ,"main = undefined"
+    ,"-- main = mainTest            showAst tokenToCats tokens tokenLineCol describe neighbors"
+    ,"-- main = mainTestIncremental showAst tokenToCats tokens tokenLineCol describe neighbors"
+    ,"main = mainTestIncremental showAst tokenToCats tokens pparse tokenLineCol describe neighbors"
     ]
 
 genBenchmark opts = render $ vcat

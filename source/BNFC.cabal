@@ -31,7 +31,9 @@ Source-repository head
 
 Library
   hs-source-dirs: runtime, src
-  Build-Depends: base>=4.4 && <5, array
+  Build-Depends: base>=4.4 && <5,
+                 array,
+                 fingertree
   exposed-modules:
    Algebra.RingUtils
    Data.Pair

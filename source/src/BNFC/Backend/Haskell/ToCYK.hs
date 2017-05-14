@@ -85,6 +85,9 @@ measured opts = vcat $
     ,"parse :: FingerTree ParseState IntToken -> [(Int,[(CATEGORY,Any)],Int)]"
     ,"parse tree = results $ measure tree"
     ,""
+    ,"pparse :: FingerTree ParseState IntToken -> ParseState"
+    ,"pparse tree = measure tree"
+    ,""
     ,"intToToken :: IntToken -> Maybe Token"
     -- ,"intToToken (Token lexeme acc) = case acc of"
     -- ,"    AlexAccPred f -> Just $ f (Pn 0 1 1) lexeme"
@@ -113,7 +116,7 @@ toAST cf = vcat $
     toText cc = text $ show cc
 
 -- Make sure all entrypoint functions are exported, together with needed types
-exports cf = cat e <> "CATEGORY, Any, parse"
+exports cf = cat e <> "CATEGORY, Any, parse, pparse"
   where
     -- e = ["get" <> toText c <> ", getAll" <> toText c <> "," | c <- allEntryPoints cf]
     e = []
