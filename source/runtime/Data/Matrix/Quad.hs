@@ -194,18 +194,6 @@ data ChopFirst x x' where
   Stop :: ChopFirst (Bin Leaf x) x
   Continue :: ChopFirst x x' -> ChopFirst (Bin x x0) (Bin x' x0)
 
--- Given two matrices with the same y component, create one with the combined x
--- component as its shape. 
--- TODO: Are these really all the cases?
-mkMat :: Shape' y -> Mat x y a -> Mat x' y a -> Mat (Bin x x') y a
-mkMat _ Zero Zero = Zero
-mkMat Leaf' Zero (One a) = row Zero (One a)
-mkMat Leaf' (One a) Zero = row (One a) Zero
-mkMat Leaf' (One a) (One b) = row (One a) (One b)
-mkMat Leaf' rl@(Row _ _) rr@(Row _ _) = row rl rr
-mkMat (Bin' _ Leaf' x) (Col a b) (Col c d) = quad a c b d
-mkMat (Bin' _ x1 x2) (Quad a b c d) (Quad e f g h) = quad (mkMat x1 a b) (mkMat x1 e f)
-                                                          (mkMat x2 c d) (mkMat x2 g h)
 
 mkRow :: AbelianGroupZ a => Mat x y a -> Mat x' y a -> Mat (Bin x x') y a
 mkRow Zero Zero      = Zero
@@ -279,6 +267,18 @@ data ChopLast x x' where
   StopX :: ChopLast (Bin x Leaf) x
   ContinueX :: ChopLast x x' -> ChopLast (Bin x0 x) (Bin x0 x') 
 
+-- Given two matrices with the same y component, create one with the combined x
+-- component as its shape.
+-- TODO: Are these really all the cases?
+mkMat :: Shape' y -> Mat x y a -> Mat x' y a -> Mat (Bin x x') y a
+mkMat _ Zero Zero = Zero
+mkMat Leaf' Zero (One a) = row Zero (One a)
+mkMat Leaf' (One a) Zero = row (One a) Zero
+mkMat Leaf' (One a) (One b) = row (One a) (One b)
+mkMat Leaf' rl@(Row _ _) rr@(Row _ _) = row rl rr
+mkMat (Bin' _ Leaf' x) (Col a b) (Col c d) = quad a c b d
+mkMat (Bin' _ x1 x2) (Quad a b c d) (Quad e f g h) = quad (mkMat x1 a b) (mkMat x1 e f)
+                                                          (mkMat x2 c d) (mkMat x2 g h)
 -- Grows a matrix in y-direction, keeping the same x shape.
 -- TODO: Are these really all the cases?
 mkMat' :: Shape' x -> Mat x y a -> Mat x y' a -> Mat x (Bin y y') a
@@ -290,6 +290,7 @@ mkMat' Leaf' cu@(Col _ _) cl@(Col _ _) = col cu cl
 mkMat' (Bin' _ x Leaf') (Row a b) (Row c d) = quad a b c d
 mkMat' (Bin' _ x1 x2) (Quad a b c d) (Quad e f g h) = quad (mkMat' x1 a c) (mkMat' x2 b d)
                                                            (mkMat' x1 e g) (mkMat' x2 f h)
+{-
 -- TODO: Should this have AbelianGroupZ as constraint? Risk of missing zeros.
 mkCol :: Mat x y a -> Mat x y' a -> Mat x (Bin y y') a
 mkCol Zero Zero = Zero
@@ -309,7 +310,9 @@ mkCol (Row a b) (Quad c d e f) = quad a b (mkCol c e) (mkCol d f)
 mkCol (Quad a b c d) Zero = quad (mkCol a c) (mkCol b d) Zero Zero
 mkCol (Quad a b c d) (Row e f) = quad (mkCol a c) (mkCol b d) e f
 mkCol (Quad a b c d) (Quad e f g h) = quad (mkCol a c) (mkCol b d) (mkCol e g) (mkCol f h)
+-}
 
+{-
 -- Chops off the last column in a matrix pair.
 chopLastCol :: ChopLast x x' -> Pair (Mat x y a) -> (Pair (Mat x' y a), Pair (Mat Leaf y a))
 chopLastCol StopX (Quad a b c d :/: Quad a' b' c' d') = (mkMat' undefined a c :/: undefined, Col b d :/: Col b' d')
@@ -328,6 +331,7 @@ chopLast (Bin' _ x1 x2) (Quad a b c d :/: Quad a' b' c' d') k =
     let (b'',e) = chopLastCol q (b :/: b') 
     in k (ContinueX q) (bin' x1 x2') (quad' (a :/: a') b'' zero d'') (Col <$> e <*> f)
 chopLast sh mat k = error $ "shape: " ++ show sh ++ ", matrix: " ++ show mat -- DEBUG
+-}
 
 -- instance Functor (Mat x y) where
 --     fmap f (Quad a b c d) = quad (fmap f a) (fmap f b) (fmap f c) (fmap f d)
@@ -500,13 +504,15 @@ lin s1 s2 m = fmap (denseContents s1) $ denseContents s2 $ lin' m
 sparse :: AbelianGroup a => Shape' x -> Shape' y -> Mat x y a -> [(Int,Int,a)]
 sparse x y Zero = []
 sparse _ _ (One x) = [(0,0,x)]
-sparse (Bin' _ x x') (Bin' _ y y') (Quad a b c d) = sparse x y a ++ shiftX x (sparse x' y b) ++ shiftY y (sparse x y' c) ++ shiftX x (shiftY y(sparse x' y' d))
+sparse (Bin' _ x x') (Bin' _ y y') (Quad a b c d)
+  = sparse x y a ++ shiftX x (sparse x' y b) ++ shiftY y (sparse x y' c) ++ shiftX x (shiftY y(sparse x' y' d))
 sparse Leaf' (Bin' _ y y') (Col a b) = sparse Leaf' y a ++ shiftY y (sparse Leaf' y' b)
 sparse (Bin' _ x x') Leaf' (Row a b) = sparse x Leaf' a ++ shiftX x (sparse x' Leaf' b)
 
 shiftX x0 as = [(x+sz' x0,y,a) | (x,y,a) <- as]
 shiftY y0 as = [(x,y+sz' y0,a) | (x,y,a) <- as]
 
+fingerprint :: AbelianGroupZ t => SomeTri t -> [String]
 fingerprint (T s (m :/: m')) = zipWith (zipWith c) (lin s s m) (lin s s m')
   where c x y = case (isZero x,isZero y) of
                      (True  , True) -> ' '
@@ -514,5 +520,6 @@ fingerprint (T s (m :/: m')) = zipWith (zipWith c) (lin s s m) (lin s s m')
                      (False , True) -> '<'
                      (False , False) -> 'X'
 
+scatterplot :: AbelianGroup t => SomeTri t -> String
 scatterplot (T s (m :/: m')) = concat [show x ++ " " ++ show y ++ "\n" | (x,y,_) <- sparse s s m ++ sparse s s m']
 
