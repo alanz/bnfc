@@ -211,7 +211,7 @@ case_fun functor cat xs = vcat
 mkPrintCase :: Bool -> (Fun, (Cat, [Either Cat String])) -> Doc
 mkPrintCase functor (f, (cat, rhs)) =
     text f <+> (if functor then "_" else empty) <+> hsep variables <+> "->"
-    <+> "prPrec i" <+> integer (precCat cat) <+> mkRhs (map render variables) rhs
+    <+> "prPrec i" <+> integer (precCat cat) <+> mkRhs (ss (f ++ "(")) (ss ")") (map render variables) rhs
   where
     -- Creating variables names used in pattern matching. In addition to
     -- haskell's reserved words, `e` and `i` are used in the printing function
@@ -225,6 +225,8 @@ mkPrintCase functor (f, (cat, rhs)) =
     var (TokenCat "Char")    = "c"
     var (TokenCat "Double")  = "d"
     var xs        = map toLower $ show xs
+
+    ss s = "doc (showString" <+> text (show s) <> ")"
 
 ifList :: CF -> Cat -> String
 ifList cf cat = render $ nest 2 $ vcat [ mkPrtListCase r | r <- rules ]
@@ -252,7 +254,7 @@ mkPrtListCase (Rule f (ListCat c) rhs)
   | otherwise = empty -- (++) constructor
   where
     precPattern = case precCat c of 0 -> "_" ; p -> integer p
-    body = mkRhs ["x", "xs"] rhs
+    body = mkRhs empty empty ["x", "xs"] rhs
 mkPrtListCase _ = error "mkPrtListCase undefined for non-list categories"
 
 
@@ -294,9 +296,10 @@ compareRules _ _ = EQ
 -- (concatD [prt 2 expr1])
 -- >>> mkRhs ["expr2s"] [Left (ListCat (CoercCat "Expr" 2))]
 -- (concatD [prt 2 expr2s])
-mkRhs :: [String] -> [Either Cat String] -> Doc
-mkRhs args its =
-    parens ("concatD" <+> brackets (hsep (punctuate "," (mk args its))))
+mkRhs :: Doc -> Doc -> [String] -> [Either Cat String] -> Doc
+mkRhs lead trail args its =
+    -- parens ("concatD" <+> brackets (hsep (punctuate "," (mk args its))))
+    parens ("concatD" <+> brackets (hsep (punctuate "," ((lead : mk args its) ++ [trail]) )))
  where
   mk args (Left InternalCat : items) = mk args items
   mk (arg:args) (Left c  : items)    = (prt c <+> text arg) : mk args items
