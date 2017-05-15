@@ -38,11 +38,13 @@ import Text.PrettyPrint.HughesPJ hiding (first,(<>))
 
 -- We don't have to run the CNF conversion since the names of any entrypoints
 -- will stay the same anyway (they are top-level definitions).
+generate :: Options -> CFG f -> String
 generate opts cf0 = render $ vcat [header opts cf0
                                   ,measured opts
-                                  -- ,toAST cf0
+                                  ,toAST cf0
                                   ]
 
+header :: Options -> CFG f -> Doc
 header opts cf = vcat $ 
     ["{-# LANGUAGE MagicHash, FlexibleInstances, MultiParamTypeClasses #-}"
     ,"{-# LANGUAGE UndecidableInstances #-}"
@@ -89,9 +91,6 @@ measured opts = vcat $
     ,"pparse tree = measure tree"
     ,""
     ,"intToToken :: IntToken -> Maybe Token"
-    -- ,"intToToken (Token lexeme acc) = case acc of"
-    -- ,"    AlexAccPred f -> Just $ f (Pn 0 1 1) lexeme"
-    -- ,"    _             -> Nothing"
     ,"intToToken (Token lexeme acc f) = case acc of"
     ,"    AlexAcc _ -> Just $ f (Pn 0 1 1) lexeme"
     ,"    _         -> Nothing"
@@ -118,7 +117,7 @@ toAST cf = vcat $
 -- Make sure all entrypoint functions are exported, together with needed types
 exports cf = cat e <> "CATEGORY, Any, parse, pparse"
   where
-    -- e = ["get" <> toText c <> ", getAll" <> toText c <> "," | c <- allEntryPoints cf]
-    e = []
+    e = ["get" <> toText c <> ", getAll" <> toText c <> "," | c <- allEntryPoints cf]
+    -- e = []
     toText cc = text $ show cc
 
