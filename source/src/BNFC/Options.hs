@@ -206,9 +206,6 @@ specificOptions =
   , ( Option []    ["xmlt"] (NoArg (\o -> o {xml = 2}))
           "DTD and an XML printer, another encoding"
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
-  , ( Option []    ["cnf"] (NoArg (\o -> o {cnf = True}))
-          "Use the CNF parser instead of happy"
-    , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
   , ( Option []    ["ghc"] (NoArg (\o -> o {ghcExtensions = True}))
           "Use ghc-specific language extensions"
     , [TargetHaskell, TargetHaskellGadt, TargetProfile] )
