@@ -176,17 +176,19 @@ genTokTable units cf = "tokenToCats :: Bool -> Token -> Pair [(CATEGORY,Any)]" $
                        vcat (map (genTokEntry cf units) (cfTokens cf)) $$
                        "tokenToCats p t = error (\"unknown token: \" ++ show t)"
 
-tokInfo cf = (catChar,"TC",Con "getHead"):
-             (catString,"TL",Con "toString"):
+tokInfo cf = (catChar,   "TC",Con "getHead"):
+             (catString, "TL",Con "toString"):
              (catInteger,"TI",Con "readInteger"):
-             (catDouble,"TD",Con "readDouble"):
-             [(catIdent,"TV",Con "Ident") | hasIdent cf] ++
+             (catDouble, "TD",Con "readDouble"):
+             [(catIdent, "TV",Con "Ident") | hasIdent cf] ++
              [(t,"T_" <> text (show t),(Con (show t))) | (t,_) <- tokenPragmas cf]
 
 
+genTokCommon :: CFG Exp -> [(RHSEl,Doc)] -> Doc
 genTokCommon cf xs = prettyPair (gen <$> splitOptim fst cf xs)
   where gen ys = prettyListFun [p (ppPair (catTag x,y)) | ((x,y),p) <- ys]
 
+genSpecEntry :: CFG Exp -> UnitRel Cat -> (Cat, Doc, Exp) -> Doc
 genSpecEntry cf units (tokName,constrName,fun) = "tokenToCats p (PT (Pn _ l c) (" <> constrName <> " x)) = " <> genTokCommon cf xs
   where xs = map (second (prettyExp . (\f -> unsafeCoerce' (f `app'` tokArgs)))) $
              (Left tokName, fun) : [(Left c,f `after` fun) | (f,c) <- lookupMulti (Left tokName) units]
