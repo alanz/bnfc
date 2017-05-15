@@ -227,6 +227,7 @@ optim f (x:/:y) = map modif x :/: map modif' y
         rob x = "("<> x <> ":)"
 
 
+splitOptim :: (a -> RHSEl) -> CFG f -> [a] -> Pair [(a,Doc -> Doc)]
 splitOptim f cf xs = optim f $ splitLROn f cf $ xs
 
 

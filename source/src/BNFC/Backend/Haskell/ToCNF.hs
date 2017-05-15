@@ -46,6 +46,7 @@ import Text.PrettyPrint.HughesPJ hiding (first,(<>))
 
 incomment x = "{-" <> x <> "-}"
 
+generate :: Options -> CFG Fun -> String
 generate opts cf0 = render $ vcat [header opts
                                   ,genShowFunction cf0
                                   ,genCatTags cf1
@@ -217,12 +218,17 @@ genTestFile opts cf = render $ vcat
     ["module Main where"
     ,"import " <> text ( alexFileM     opts)
     ,"import " <> text ( cnfTablesFileM opts)
-    ,"import " <> text ( cnfIncrementalCYKFileM opts)
     ,"import Parsing.TestProgram"
-    ,"-- main = mainTest            showAst tokenToCats tokens tokenLineCol describe neighbors"
-    ,"-- main = mainTestIncremental showAst tokenToCats tokens tokenLineCol describe neighbors"
-    ,"main = mainTestIncremental showAst tokenToCats tokens pparse tokenLineCol describe neighbors"
+    ,imp
+    ,testFun
     ]
+  where
+    imp = if incremental opts
+      then "import " <> text ( cnfIncrementalCYKFileM opts)
+      else ""
+    testFun = if incremental opts
+      then "main = mainTestIncremental showAst tokenToCats tokens pparse tokenLineCol describe neighbors"
+      else "main = mainTest            showAst tokenToCats tokens        tokenLineCol describe neighbors"
 
 genBenchmark opts = render $ vcat
    ["import System.Environment ( getArgs )"
