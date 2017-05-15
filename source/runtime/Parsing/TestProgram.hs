@@ -10,7 +10,8 @@ import Control.Applicative (pure)
 import Parsing.Chart hiding (fingerprint,mkTree)
 import Data.Matrix.Quad
 import Data.Pair
-import Algebra.RingUtils
+-- import Algebra.RingUtils
+import Algebra.RingUtils as RU
 import Data.FingerTree
 
 type Verbosity = Int
@@ -105,9 +106,10 @@ mainTestIncremental showAst cnfToksToCat myLLexer myParser getTokPos describe fo
 
  where
   neighbors a b = b `elem` follows a
-  showResults :: [(category,Any)] -> IO ()
-  showResults x = do
+  showResults :: Int -> [(category,Any)] -> Int -> IO ()
+  showResults f x t = do
         putStrLn $ show (length x) ++ " results"
+        putStrLn $ show (f,t) ++ " (f,t)"
         forM_ x $ \(cat,ast) -> do
           putStrLn $ describe cat
           putStrLn $ showAst (cat,ast)
@@ -115,7 +117,7 @@ mainTestIncremental showAst cnfToksToCat myLLexer myParser getTokPos describe fo
   runFile v f = putStrLn f >> readFile f >>= run f v
   run f v s =
     do case rs of
-         [(_,x,_)] -> showResults x
+         [(f,x,t)] -> showResults f x t
          _ -> do let errs = pairs rs
                      best = minimum $ map quality errs
                  mapM_ (putStrLn . showErr ts) $ filter (\x -> quality x == best) errs
@@ -124,17 +126,22 @@ mainTestIncremental showAst cnfToksToCat myLLexer myParser getTokPos describe fo
          let scatt = scatterplot chart
          putStrLn $ "Scatterplot data size:" ++ show (length scatt)
          writeFile (f ++ ".data") scatt
+         -- putStrLn $ "mat:" ++ (show linchart)
+         writeFile (f ++ ".mat") (show linchart)
     where
           ts :: FingerTree (SomeTri [(category,Any)]) inttoken
           ts = myLLexer s
-          -- chart = mkMyTree [mkMyPair ts]
-          -- chart = mkTree $ zipWith cnfToksToCat (cycle [False,True]) ts
           chart :: SomeTri [(category, Any)]
           chart = myParser ts
-          -- chart = measure ts
           rs :: [(Int, [(category, Any)], Int)]
           rs = results chart
-          -- rs = parse ts
+
+          ll :: SomeTri [(category,Any)] -> (String,[[[String]]],[[[String]]],[[[String]]])
+          ll (T s (m :/: m')) = (show s, f m, f m', f (m RU.+ m'))
+            where f n = (fmap $ fmap $ fmap (describe . fst)) $ lin s s n
+
+          linchart :: (String, [[[String]]],[[[String]]],[[[String]]])
+          linchart = ll chart
 
   showTokPos :: (Int,Int) -> String
   showTokPos (l,c) = show l ++ "," ++ show (c-1)
@@ -154,7 +161,9 @@ mainTestIncremental showAst cnfToksToCat myLLexer myParser getTokPos describe fo
 
 
   showBestCat ((x,_):_) = describe x
+  showBestCat [] = "showBestCat: empty list"
 
+{-
   mkMyPair :: [(category,Any)] -> Pair [(category,Any)]
   mkMyPair ts = f :/: b
     where
@@ -165,33 +174,5 @@ mainTestIncremental showAst cnfToksToCat myLLexer myParser getTokPos describe fo
 
   myResults :: SomeTri [(category,Any)] -> [(Int,[(category,Any)],Int)]
   myResults = results
-{-
-
-(Table State (Tokens v0), Size)
-tokens :: FT.Measured v IntToken => String -> v
-tokens str = FT.measure $ stateToTree $ FT.measure $ makeTree str
-
-tokensP :: FT.Measured v IntToken => String -> FT.FingerTree v IntToken
-tokensP str = stateToTree $ FT.measure $ makeTree str
-
-tokens' :: FT.Measured v IntToken => String -> (Table State (Tokens v), Size)
-tokens' str = FT.measure $ makeTree str
-
-
-mkTree :: RingP a => [Pair a] -> SomeTri a
-
--- From IncrementalCYKXXX
-type ParseState = SomeTri [(CATEGORY,Any)]
-parse :: FingerTree ParseState IntToken -> [(Int,[(CATEGORY,Any)],Int)]
-parse tree = results $ measure tree
-
-
-main = do
-  f:_ <- getArgs
-  s <- readFile f
-  let ts = zipWith tokenToCats (cycle [False,True]) (Lexer.tokens s)
-      (ts1,x:ts2) = splitAt (length ts `div` 2) ts
-      cs = [mkTree ts1,mkTree' ts2]
-      work [c1,c2] = show $ map fst $ root $ mergein False c1 x c2
-  defaultMain [bench f $ nf work cs] -- note the hack!!!
 -}
+
