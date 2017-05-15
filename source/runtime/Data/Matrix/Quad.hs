@@ -465,7 +465,8 @@ results' m y | isRightmost y = []
   where Just (a,x) = rightmostOnLine y m
 
 results :: AbelianGroupZ a => SomeTri a -> [(Int, a, Int)]
-results (T s (m :/: m')) = [(fromPath s x,a,fromPath s y) | (x,a,y) <- results' (m+m') (leftMost s)]
+-- results (T s (m :/: m')) = [(fromPath s x,a,fromPath s y) | (x,a,y) <- results' (m+m') (leftMost s)]
+results (T s (m :/: m')) = [(fromPath s x,a,fromPath s y) | (x,a,y) <- results' m (leftMost s)]
 
 leftMost :: Shape' s -> Path s
 leftMost Leaf' = Here
